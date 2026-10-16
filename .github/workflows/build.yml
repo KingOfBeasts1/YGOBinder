@@ -1,0 +1,38 @@
+name: Build IPA
+
+on:
+  workflow_dispatch:      # lets you press "Run workflow" in the Actions tab
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    # Cloud Mac with Xcode 26.6. The app still runs fine on iOS 27.
+    # If this label ever fails, try: runs-on: xcode-27
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build (unsigned)
+        run: |
+          xcodebuild -project YGOBinder.xcodeproj -scheme YGOBinder \
+            -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+
+      - name: Package IPA
+        run: |
+          mkdir Payload
+          cp -R build/Build/Products/Release-iphoneos/YGOBinder.app Payload/
+          zip -r YGOBinder.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: YGOBinder-ipa
+          path: YGOBinder.ipa
